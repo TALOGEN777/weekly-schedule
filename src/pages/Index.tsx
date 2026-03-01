@@ -7,6 +7,8 @@ import {
   ImageIcon,
   Pencil,
   Trash2,
+  Menu,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScheduleCell, type ScheduleEntry } from '@/components/schedule/ScheduleCell';
@@ -18,19 +20,9 @@ import {
   formatDisplayDate,
   getDayName,
   getCurrentWeekStart,
-  getStartOfWeek,
 } from '@/utils/dateUtils';
+import { useScheduleData, type ScheduleRow } from '@/hooks/useScheduleData';
 import domtoimage from 'dom-to-image';
-
-interface ScheduleRow {
-  id: string;
-  label: string;
-  name: string;
-}
-
-interface ScheduleData {
-  [key: string]: ScheduleEntry;
-}
 
 interface ModalState {
   isOpen: boolean;
@@ -51,10 +43,7 @@ interface DragOverCell {
 }
 
 const Index = () => {
-  // Initialize with current week based on system date
   const [currentDate, setCurrentDate] = useState<Date>(() => getCurrentWeekStart());
-  const [scheduleData, setScheduleData] = useState<ScheduleData>({});
-  const [rows, setRows] = useState<ScheduleRow[]>([]);
   const [modalState, setModalState] = useState<ModalState>({
     isOpen: false,
     rowId: null,
@@ -67,8 +56,23 @@ const Index = () => {
     initialLabel: '',
   });
   const [dragOverCell, setDragOverCell] = useState<DragOverCell | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const scheduleRef = useRef<HTMLDivElement>(null);
+
+  // Derived state
+  const weekDays = getDaysOfWeek(currentDate);
+  const formattedWeekDays = weekDays.map((d) => ({
+    fullDate: d,
+    dateStr: formatDate(d),
+    label: formatDisplayDate(d),
+    dayName: getDayName(d),
+  }));
+
+  const weekDateStrs = formattedWeekDays.map((d) => d.dateStr);
+
+  // Backend persistence hook
+  const { rows, scheduleData, loading, setRows, setScheduleData } = useScheduleData(weekDateStrs);
 
   // Navigation
   const handlePrevWeek = () => {
@@ -95,6 +99,7 @@ const Index = () => {
       rowId: null,
       initialLabel: '',
     });
+    setMobileMenuOpen(false);
   };
 
   const handleOpenEditRow = (e: React.MouseEvent, row: ScheduleRow) => {
@@ -119,29 +124,25 @@ const Index = () => {
       };
       setRows((prev) => [...prev, newRow]);
 
-      // If prefilled days are provided, automatically generate the schedule entries for this new line
       if (prefilledDays && prefilledDays.length > 0) {
         setScheduleData((prev) => {
           const newData = { ...prev };
 
           prefilledDays.forEach((dayStr) => {
-            // Map the requested days to the specific days of the week in the 5-day view
-            // formattedWeekDays indices: 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday
             const dayIndexMap: Record<string, number> = {
-              'Day 0': 1, // Monday
-              'Day 1': 2, // Tuesday
-              'Day 2': 3, // Wednesday
-              'Day 3': 4, // Thursday
-              'Day 6': 0, // Sunday
-              'Day 9': 3, // Wednesday
-              'Day 10': 4, // Thursday
+              'Day 0': 1,
+              'Day 1': 2,
+              'Day 2': 3,
+              'Day 3': 4,
+              'Day 6': 0,
+              'Day 9': 3,
+              'Day 10': 4,
             };
 
             const index = dayIndexMap[dayStr];
             if (index !== undefined && index >= 0 && index < formattedWeekDays.length) {
               const dateStrKey = formattedWeekDays[index].dateStr;
 
-              // Depending on Room 32 or Room 31, the user's incubator/BSC choices differ
               let incubator = '';
               let hood = '';
               const is32 = label.includes('32');
@@ -155,7 +156,6 @@ const Index = () => {
                 hood = '03';
               }
 
-              // Time formatting
               let startTime = '08:00';
               let endTime = '14:00';
               if (dayStr === 'Day 1') {
@@ -233,12 +233,9 @@ const Index = () => {
 
     setScheduleData((prev) => {
       const newData = { ...prev };
-
-      // Update the explicitly edited cell with all data
       const key = `${rowId}_${dateStr}`;
       newData[key] = data;
 
-      // Apply shared fields (process, batch, incubator, hood) to all other existing entries in this row
       Object.keys(newData).forEach((entryKey) => {
         if (entryKey.startsWith(`${rowId}_`) && entryKey !== key) {
           newData[entryKey] = {
@@ -286,9 +283,7 @@ const Index = () => {
     setDragOverCell({ rowId, dateStr });
   }, []);
 
-  const handleDragLeave = useCallback(() => {
-    // Could add logic to only clear if leaving the cell completely
-  }, []);
+  const handleDragLeave = useCallback(() => {}, []);
 
   const handleDrop = useCallback(
     (e: React.DragEvent, targetRowId: string, targetDateStr: string) => {
@@ -333,8 +328,8 @@ const Index = () => {
         height: element.scrollHeight * 4,
         style: {
           transform: 'scale(4)',
-          transformOrigin: 'top left'
-        }
+          transformOrigin: 'top left',
+        },
       });
 
       const link = document.createElement('a');
@@ -345,16 +340,8 @@ const Index = () => {
       console.error('Export failed', err);
       alert('Failed to export image. Please try again.');
     }
+    setMobileMenuOpen(false);
   };
-
-  // Derived state
-  const weekDays = getDaysOfWeek(currentDate);
-  const formattedWeekDays = weekDays.map((d) => ({
-    fullDate: d,
-    dateStr: formatDate(d),
-    label: formatDisplayDate(d),
-    dayName: getDayName(d),
-  }));
 
   const getCellData = (rowId: string, dateStr: string): ScheduleEntry | null => {
     return scheduleData[`${rowId}_${dateStr}`] || null;
@@ -364,17 +351,18 @@ const Index = () => {
     <div className="min-h-screen bg-background flex flex-col font-sans text-foreground">
       {/* Top Header */}
       <header className="bg-card border-b border-border shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="bg-primary p-2 rounded-lg">
-              <Calendar className="w-5 h-5 text-primary-foreground" />
+            <div className="bg-primary p-1.5 sm:p-2 rounded-lg">
+              <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
             </div>
-            <h1 className="text-xl font-bold text-card-foreground tracking-tight">
-              Cleanroom Production Schedule
+            <h1 className="text-sm sm:text-xl font-bold text-card-foreground tracking-tight">
+              Cleanroom Schedule
             </h1>
           </div>
 
-          <div className="flex items-center gap-4">
+          {/* Desktop controls */}
+          <div className="hidden md:flex items-center gap-4">
             <Button variant="outline" size="sm" onClick={handleExportJPG}>
               <ImageIcon className="w-4 h-4 mr-2 text-primary" />
               Export JPG
@@ -408,125 +396,180 @@ const Index = () => {
               Jump to Today
             </button>
           </div>
+
+          {/* Mobile controls */}
+          <div className="flex md:hidden items-center gap-2">
+            <div className="flex items-center bg-secondary rounded-lg p-0.5">
+              <button
+                onClick={handlePrevWeek}
+                className="p-1 hover:bg-card rounded-md text-muted-foreground"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <div className="px-2 font-medium text-xs text-foreground min-w-[80px] text-center">
+                {formattedWeekDays[0]?.label}
+              </div>
+              <button
+                onClick={handleNextWeek}
+                className="p-1 hover:bg-card rounded-md text-muted-foreground"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 hover:bg-secondary rounded-md text-muted-foreground"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+          </div>
         </div>
+
+        {/* Mobile dropdown menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-border bg-card px-4 py-3 flex flex-col gap-2">
+            <Button size="sm" onClick={handleOpenAddRow} className="w-full justify-start">
+              <PlusCircle className="w-4 h-4 mr-2" />
+              Add Line
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportJPG} className="w-full justify-start">
+              <ImageIcon className="w-4 h-4 mr-2 text-primary" />
+              Export JPG
+            </Button>
+            <button
+              onClick={() => { handleToday(); setMobileMenuOpen(false); }}
+              className="text-sm text-primary font-medium hover:underline text-left py-1"
+            >
+              Jump to Today
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div
-          id="schedule-grid-container"
-          ref={scheduleRef}
-          className="bg-card rounded-xl shadow-sm border border-border overflow-hidden min-h-[400px]"
-        >
-          <div className="overflow-x-auto">
-            <div className="min-w-[1000px]">
-              {/* Grid Header */}
-              <div className="grid grid-cols-[250px_repeat(5,_1fr)] bg-secondary border-b border-border">
-                <div className="p-4 flex items-end font-semibold text-muted-foreground text-sm border-r border-border">
-                  Room / Day
-                </div>
-                {formattedWeekDays.map((day) => (
-                  <div
-                    key={day.dateStr}
-                    className="p-3 border-r border-border last:border-r-0 text-center"
-                  >
-                    <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">
-                      {day.dayName}
-                    </div>
-                    <div className="text-lg font-bold text-foreground">{day.label}</div>
+      <main className="flex-1 max-w-7xl w-full mx-auto px-2 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div
+            id="schedule-grid-container"
+            ref={scheduleRef}
+            className="bg-card rounded-xl shadow-sm border border-border overflow-hidden min-h-[400px]"
+          >
+            <div className="overflow-x-auto">
+              <div className="min-w-[800px]">
+                {/* Grid Header */}
+                <div className="grid grid-cols-[180px_repeat(5,_1fr)] sm:grid-cols-[250px_repeat(5,_1fr)] bg-secondary border-b border-border">
+                  <div className="p-2 sm:p-4 flex items-end font-semibold text-muted-foreground text-xs sm:text-sm border-r border-border">
+                    Room / Day
                   </div>
-                ))}
-              </div>
-
-              {/* Grid Body */}
-              {rows.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-                  <div className="bg-secondary p-4 rounded-full mb-4">
-                    <PlusCircle className="w-8 h-8 text-muted-foreground" />
-                  </div>
-                  <h3 className="text-lg font-medium text-foreground">No lines added yet</h3>
-                  <p className="max-w-xs text-center mt-1">
-                    Start by clicking the "Add Line" button to create rows for your schedule.
-                  </p>
-                  <Button
-                    variant="ghost"
-                    onClick={handleOpenAddRow}
-                    className="mt-4 text-primary hover:text-primary hover:bg-primary/10"
-                  >
-                    Add your first line
-                  </Button>
-                </div>
-              ) : (
-                <div>
-                  {rows.map((row) => (
+                  {formattedWeekDays.map((day) => (
                     <div
-                      key={row.id}
-                      className="grid grid-cols-[250px_repeat(5,_1fr)] border-b border-border last:border-b-0 hover:bg-secondary/50"
+                      key={day.dateStr}
+                      className="p-2 sm:p-3 border-r border-border last:border-r-0 text-center"
                     >
-                      {/* Row Label */}
-                      <div className="p-4 border-r border-border bg-secondary/50 font-bold text-2xl text-foreground flex items-center group relative overflow-hidden">
-                        <span className="flex-1 mr-8 truncate min-w-0" title={row.label}>{row.label}</span>
-
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity bg-secondary pl-2">
-                          <button
-                            type="button"
-                            onClick={(e) => handleOpenEditRow(e, row)}
-                            className="p-1.5 hover:bg-primary/10 rounded text-muted-foreground hover:text-primary transition-colors focus:opacity-100 focus:outline-none"
-                            title="Edit Room Name"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setRowModalState({
-                                isOpen: true,
-                                mode: 'edit',
-                                rowId: row.id,
-                                initialLabel: row.label,
-                              });
-                            }}
-                            className="p-1.5 hover:bg-destructive/10 rounded text-muted-foreground hover:text-destructive transition-colors focus:opacity-100 focus:outline-none"
-                            title="Delete Row"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
+                      <div className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider mb-0.5 sm:mb-1">
+                        {day.dayName}
                       </div>
-
-                      {/* Cells */}
-                      {formattedWeekDays.map((day) => {
-                        const data = getCellData(row.id, day.dateStr);
-                        const isDragOver =
-                          dragOverCell &&
-                          dragOverCell.rowId === row.id &&
-                          dragOverCell.dateStr === day.dateStr;
-
-                        return (
-                          <ScheduleCell
-                            key={`${row.id}_${day.dateStr}`}
-                            rowId={row.id}
-                            dateStr={day.dateStr}
-                            data={data}
-                            onClick={() => handleCellClick(row.id, day.dateStr)}
-                            onDragStart={handleDragStart}
-                            onDrop={handleDrop}
-                            onDragOver={handleDragOver}
-                            onDragEnter={handleDragEnter}
-                            onDragLeave={handleDragLeave}
-                            isDragOver={!!isDragOver}
-                            roomLabel={row.label}
-                          />
-                        );
-                      })}
+                      <div className="text-sm sm:text-lg font-bold text-foreground">{day.label}</div>
                     </div>
                   ))}
                 </div>
-              )}
+
+                {/* Grid Body */}
+                {rows.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                    <div className="bg-secondary p-4 rounded-full mb-4">
+                      <PlusCircle className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-lg font-medium text-foreground">No lines added yet</h3>
+                    <p className="max-w-xs text-center mt-1">
+                      Start by clicking the "Add Line" button to create rows for your schedule.
+                    </p>
+                    <Button
+                      variant="ghost"
+                      onClick={handleOpenAddRow}
+                      className="mt-4 text-primary hover:text-primary hover:bg-primary/10"
+                    >
+                      Add your first line
+                    </Button>
+                  </div>
+                ) : (
+                  <div>
+                    {rows.map((row) => (
+                      <div
+                        key={row.id}
+                        className="grid grid-cols-[180px_repeat(5,_1fr)] sm:grid-cols-[250px_repeat(5,_1fr)] border-b border-border last:border-b-0 hover:bg-secondary/50"
+                      >
+                        {/* Row Label */}
+                        <div className="p-2 sm:p-4 border-r border-border bg-secondary/50 font-bold text-lg sm:text-2xl text-foreground flex items-center group relative overflow-hidden">
+                          <span className="flex-1 mr-6 sm:mr-8 truncate min-w-0" title={row.label}>
+                            {row.label}
+                          </span>
+
+                          <div className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity bg-secondary pl-2">
+                            <button
+                              type="button"
+                              onClick={(e) => handleOpenEditRow(e, row)}
+                              className="p-1.5 hover:bg-primary/10 rounded text-muted-foreground hover:text-primary transition-colors focus:opacity-100 focus:outline-none"
+                              title="Edit Room Name"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRowModalState({
+                                  isOpen: true,
+                                  mode: 'edit',
+                                  rowId: row.id,
+                                  initialLabel: row.label,
+                                });
+                              }}
+                              className="p-1.5 hover:bg-destructive/10 rounded text-muted-foreground hover:text-destructive transition-colors focus:opacity-100 focus:outline-none"
+                              title="Delete Row"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Cells */}
+                        {formattedWeekDays.map((day) => {
+                          const data = getCellData(row.id, day.dateStr);
+                          const isDragOver =
+                            dragOverCell &&
+                            dragOverCell.rowId === row.id &&
+                            dragOverCell.dateStr === day.dateStr;
+
+                          return (
+                            <ScheduleCell
+                              key={`${row.id}_${day.dateStr}`}
+                              rowId={row.id}
+                              dateStr={day.dateStr}
+                              data={data}
+                              onClick={() => handleCellClick(row.id, day.dateStr)}
+                              onDragStart={handleDragStart}
+                              onDrop={handleDrop}
+                              onDragOver={handleDragOver}
+                              onDragEnter={handleDragEnter}
+                              onDragLeave={handleDragLeave}
+                              isDragOver={!!isDragOver}
+                              roomLabel={row.label}
+                            />
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </main>
 
       {/* Modals */}
@@ -535,7 +578,11 @@ const Index = () => {
         onClose={() => setModalState({ ...modalState, isOpen: false })}
         onSave={handleSaveEntry}
         onDelete={handleDeleteEntry}
-        initialData={modalState.rowId && modalState.dateStr ? getCellData(modalState.rowId, modalState.dateStr) : null}
+        initialData={
+          modalState.rowId && modalState.dateStr
+            ? getCellData(modalState.rowId, modalState.dateStr)
+            : null
+        }
         dateLabel={modalState.dateStr || ''}
         roomLabel={rows.find((r) => r.id === modalState.rowId)?.label || ''}
       />
