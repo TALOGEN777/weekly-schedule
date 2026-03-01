@@ -319,8 +319,19 @@ const Index = () => {
     if (!element) return;
 
     try {
-      const scrollContainer = element.querySelector('.overflow-x-auto');
-      const contentWidth = scrollContainer ? scrollContainer.scrollWidth : element.scrollWidth;
+      const scrollContainer = element.querySelector('.overflow-x-auto') as HTMLElement | null;
+      const innerContent = element.querySelector('.min-w-\\[800px\\]') as HTMLElement | null;
+      const contentWidth = innerContent ? innerContent.scrollWidth : (scrollContainer ? scrollContainer.scrollWidth : element.scrollWidth);
+
+      // Temporarily remove overflow clipping so full content is captured
+      const origOverflow = scrollContainer ? scrollContainer.style.overflow : '';
+      const origWidth = element.style.width;
+      const origMinWidth = element.style.minWidth;
+      if (scrollContainer) {
+        scrollContainer.style.overflow = 'visible';
+      }
+      element.style.width = `${contentWidth}px`;
+      element.style.minWidth = `${contentWidth}px`;
 
       const dataUrl = await domtoimage.toJpeg(element, {
         bgcolor: '#ffffff',
@@ -329,8 +340,17 @@ const Index = () => {
         style: {
           transform: 'scale(4)',
           transformOrigin: 'top left',
+          width: `${contentWidth}px`,
+          minWidth: `${contentWidth}px`,
         },
       });
+
+      // Restore original styles
+      if (scrollContainer) {
+        scrollContainer.style.overflow = origOverflow;
+      }
+      element.style.width = origWidth;
+      element.style.minWidth = origMinWidth;
 
       const link = document.createElement('a');
       link.href = dataUrl;
