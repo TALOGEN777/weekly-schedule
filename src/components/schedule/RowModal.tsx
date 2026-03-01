@@ -4,10 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+export interface RowConfig {
+  label: string;
+  prefilledDays?: string[];
+}
+
 interface RowModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (label: string) => void;
+  onSave: (config: RowConfig) => void;
   onDelete: () => void;
   initialLabel?: string;
   mode?: 'add' | 'edit';
@@ -32,7 +37,7 @@ export const RowModal = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (label.trim()) {
-      onSave(label);
+      onSave({ label });
       setLabel('');
     }
   };
@@ -53,14 +58,85 @@ export const RowModal = ({
           <Label htmlFor="room-name" className="text-sm font-medium mb-2 block">
             Room Name / Line Label
           </Label>
-          <Input
-            id="room-name"
-            type="text"
-            placeholder="e.g. Room 32 (Line A)"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            autoFocus
-          />
+          {mode === 'add' ? (
+            <div className="flex flex-col gap-2 mb-4">
+              <Button
+                type="button"
+                variant={label === 'Room 32 (A)' ? 'default' : 'outline'}
+                onClick={() => {
+                  setLabel('Room 32');
+                  onSave({ label: 'Room 32', prefilledDays: ['Day 0', 'Day 1', 'Day 2', 'Day 3'] });
+                }}
+                className="justify-start truncate"
+              >
+                Room 32 (A): Day 0, 1, 2, 3
+              </Button>
+              <Button
+                type="button"
+                variant={label === 'Room 32 (B)' ? 'default' : 'outline'}
+                onClick={() => {
+                  setLabel('Room 32');
+                  onSave({ label: 'Room 32', prefilledDays: ['Day 6', 'Day 9', 'Day 10'] });
+                }}
+                className="justify-start truncate"
+              >
+                Room 32 (B): Day 6, 9, 10
+              </Button>
+              <Button
+                type="button"
+                variant={label === 'Room 31 (A)' ? 'default' : 'outline'}
+                onClick={() => {
+                  setLabel('Room 31');
+                  onSave({ label: 'Room 31', prefilledDays: ['Day 0', 'Day 1', 'Day 2', 'Day 3'] });
+                }}
+                className="justify-start truncate"
+              >
+                Room 31 (A): Day 0, 1, 2, 3
+              </Button>
+              <Button
+                type="button"
+                variant={label === 'Room 31 (B)' ? 'default' : 'outline'}
+                onClick={() => {
+                  setLabel('Room 31');
+                  onSave({ label: 'Room 31', prefilledDays: ['Day 6', 'Day 9', 'Day 10'] });
+                }}
+                className="justify-start truncate"
+              >
+                Room 31 (B): Day 6, 9, 10
+              </Button>
+              <Button
+                type="button"
+                variant={label === 'Process Development' ? 'default' : 'outline'}
+                onClick={() => {
+                  setLabel('Process Development');
+                  onSave({ label: 'Process Development' });
+                }}
+                className="justify-start truncate mt-2"
+              >
+                Process Development
+              </Button>
+              <Button
+                type="button"
+                variant={label === 'Comments' ? 'default' : 'outline'}
+                onClick={() => {
+                  setLabel('Comments');
+                  onSave({ label: 'Comments' });
+                }}
+                className="justify-start truncate"
+              >
+                Comments
+              </Button>
+            </div>
+          ) : (
+            <Input
+              id="room-name"
+              type="text"
+              placeholder="e.g. Room 32 (Line A)"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              autoFocus
+            />
+          )}
           <div
             className={`mt-6 flex ${mode === 'edit' ? 'justify-between' : 'justify-end'} gap-2`}
           >
@@ -79,7 +155,9 @@ export const RowModal = ({
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button type="submit">{buttonText}</Button>
+              {mode === 'edit' && (
+                <Button type="submit">{buttonText}</Button>
+              )}
             </div>
           </div>
         </form>

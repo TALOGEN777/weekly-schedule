@@ -14,8 +14,8 @@ export const getStartOfWeek = (date: Date): Date => {
 
 export const getDaysOfWeek = (startDate: Date): Date[] => {
   const days: Date[] = [];
-  // Get 5 working days (Mon-Fri) starting from Sunday + 1
-  for (let i = 1; i <= 5; i++) {
+  // Get 5 working days starting from Sunday (day 0)
+  for (let i = 0; i < 5; i++) {
     const d = new Date(startDate);
     d.setDate(startDate.getDate() + i);
     days.push(d);

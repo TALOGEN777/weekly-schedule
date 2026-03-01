@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 export interface ScheduleEntry {
   process: string;
   batch: string;
+  day?: string;
   startTime: string;
   endTime: string;
   employees: string;
@@ -22,6 +23,7 @@ interface ScheduleCellProps {
   onDragEnter: (e: React.DragEvent, rowId: string, dateStr: string) => void;
   onDragLeave: (e: React.DragEvent) => void;
   isDragOver: boolean;
+  roomLabel?: string;
 }
 
 export const ScheduleCell = ({
@@ -35,6 +37,7 @@ export const ScheduleCell = ({
   onDragEnter,
   onDragLeave,
   isDragOver,
+  roomLabel,
 }: ScheduleCellProps) => {
   // Empty Cell
   if (!data) {
@@ -59,6 +62,31 @@ export const ScheduleCell = ({
     );
   }
 
+  // Comments Cell
+  if (roomLabel === 'Comments') {
+    return (
+      <div
+        draggable="true"
+        onDragStart={(e) => onDragStart(e, rowId, dateStr)}
+        onDrop={(e) => onDrop(e, rowId, dateStr)}
+        onDragOver={onDragOver}
+        onDragEnter={(e) => onDragEnter(e, rowId, dateStr)}
+        onDragLeave={onDragLeave}
+        onClick={onClick}
+        className={cn(
+          'h-full min-h-[140px] p-3 border-r border-b border-border cursor-grab active:cursor-grabbing transition-all relative group',
+          isDragOver
+            ? 'bg-schedule-dragover ring-2 ring-primary ring-inset'
+            : 'bg-card hover:bg-schedule-hover'
+        )}
+      >
+        <div className="flex w-full h-full text-sm text-foreground items-start text-left whitespace-pre-wrap break-words">
+          {data.process}
+        </div>
+      </div>
+    );
+  }
+
   const isCocoon = data.process?.toLowerCase().includes('cocoon');
 
   // Occupied Cell
@@ -76,8 +104,8 @@ export const ScheduleCell = ({
         isDragOver
           ? 'bg-schedule-dragover ring-2 ring-primary ring-inset'
           : isCocoon
-          ? 'bg-schedule-cocoon hover:bg-schedule-cocoon/80'
-          : 'bg-card hover:bg-schedule-hover'
+            ? 'bg-schedule-cocoon hover:bg-schedule-cocoon/80'
+            : 'bg-card hover:bg-schedule-hover'
       )}
     >
       {/* Centered Content */}
@@ -96,7 +124,11 @@ export const ScheduleCell = ({
               {data.process || 'N/A'}
             </span>
           </div>
-          <div className="text-xs text-muted-foreground font-mono">{data.batch}</div>
+          <div className="text-xs font-semibold">
+            {data.day && <span>{data.day}</span>}
+            {data.day && data.batch && <span className="mx-1 text-muted-foreground">•</span>}
+            {data.batch && <span>{data.batch}</span>}
+          </div>
 
           <div className="flex items-center text-xs text-muted-foreground font-medium mt-1">
             <Clock className="w-3 h-3 mr-1" />
@@ -118,16 +150,16 @@ export const ScheduleCell = ({
 
           <div className="flex gap-2 flex-wrap justify-center mt-1">
             {data.incubator && (
-              <div className="flex items-center text-[10px] bg-schedule-incubator text-schedule-incubator-foreground px-1.5 py-0.5 rounded border border-schedule-incubator-border">
-                <Box className="w-3 h-3 mr-1" />
-                Inc #{data.incubator}
+              <div className="flex items-center justify-center text-[10px] leading-none bg-schedule-incubator text-schedule-incubator-foreground px-1.5 py-1 min-h-[22px] rounded border border-schedule-incubator-border whitespace-nowrap">
+                <Box className="w-3 h-3 mr-1 shrink-0" strokeWidth={2.5} />
+                <span>Inc #{data.incubator}</span>
               </div>
             )}
 
             {data.hood && (
-              <div className="flex items-center text-[10px] bg-schedule-hood text-schedule-hood-foreground px-1.5 py-0.5 rounded border border-schedule-hood-border">
-                <FlaskConical className="w-3 h-3 mr-1" />
-                BSC #{data.hood}
+              <div className="flex items-center justify-center text-[10px] leading-none bg-schedule-hood text-schedule-hood-foreground px-1.5 py-1 min-h-[22px] rounded border border-schedule-hood-border whitespace-nowrap">
+                <FlaskConical className="w-3 h-3 mr-1 shrink-0" strokeWidth={2.5} />
+                <span>BSC #{data.hood}</span>
               </div>
             )}
           </div>

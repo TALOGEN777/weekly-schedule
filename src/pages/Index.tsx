@@ -20,7 +20,7 @@ import {
   getCurrentWeekStart,
   getStartOfWeek,
 } from '@/utils/dateUtils';
-import html2canvas from 'html2canvas';
+import domtoimage from 'dom-to-image';
 
 interface ScheduleRow {
   id: string;
@@ -107,14 +107,84 @@ const Index = () => {
     });
   };
 
-  const handleSaveRow = (label: string) => {
+  const handleSaveRow = (config: { label: string; prefilledDays?: string[] }) => {
+    const { label, prefilledDays } = config;
+
     if (rowModalState.mode === 'add') {
+      const rowId = `row-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const newRow: ScheduleRow = {
-        id: `row-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: rowId,
         label: label,
         name: label,
       };
       setRows((prev) => [...prev, newRow]);
+
+      // If prefilled days are provided, automatically generate the schedule entries for this new line
+      if (prefilledDays && prefilledDays.length > 0) {
+        setScheduleData((prev) => {
+          const newData = { ...prev };
+
+          prefilledDays.forEach((dayStr) => {
+            // Map the requested days to the specific days of the week in the 5-day view
+            // formattedWeekDays indices: 0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday
+            const dayIndexMap: Record<string, number> = {
+              'Day 0': 1, // Monday
+              'Day 1': 2, // Tuesday
+              'Day 2': 3, // Wednesday
+              'Day 3': 4, // Thursday
+              'Day 6': 0, // Sunday
+              'Day 9': 3, // Wednesday
+              'Day 10': 4, // Thursday
+            };
+
+            const index = dayIndexMap[dayStr];
+            if (index !== undefined && index >= 0 && index < formattedWeekDays.length) {
+              const dateStrKey = formattedWeekDays[index].dateStr;
+
+              // Depending on Room 32 or Room 31, the user's incubator/BSC choices differ
+              let incubator = '';
+              let hood = '';
+              const is32 = label.includes('32');
+              const is31 = label.includes('31');
+
+              if (is32) {
+                incubator = '07';
+                hood = '06';
+              } else if (is31) {
+                incubator = '03';
+                hood = '03';
+              }
+
+              // Time formatting
+              let startTime = '08:00';
+              let endTime = '14:00';
+              if (dayStr === 'Day 1') {
+                startTime = '09:00';
+                endTime = '15:00';
+              } else if (dayStr === 'Day 6') {
+                startTime = '07:00';
+                endTime = '10:00';
+              } else if (dayStr === 'Day 9') {
+                startTime = '08:00';
+                endTime = '12:00';
+              }
+
+              newData[`${rowId}_${dateStrKey}`] = {
+                process: 'CD19 CAR-T',
+                batch: '',
+                day: dayStr,
+                startTime,
+                endTime,
+                employees: '',
+                incubator,
+                hood,
+              };
+            }
+          });
+
+          return newData;
+        });
+      }
     } else if (rowModalState.mode === 'edit' && rowModalState.rowId) {
       setRows((prev) =>
         prev.map((row) =>
@@ -160,11 +230,30 @@ const Index = () => {
   const handleSaveEntry = (data: ScheduleEntry) => {
     const { rowId, dateStr } = modalState;
     if (!rowId || !dateStr) return;
-    const key = `${rowId}_${dateStr}`;
-    setScheduleData((prev) => ({
-      ...prev,
-      [key]: data,
-    }));
+
+    setScheduleData((prev) => {
+      const newData = { ...prev };
+
+      // Update the explicitly edited cell with all data
+      const key = `${rowId}_${dateStr}`;
+      newData[key] = data;
+
+      // Apply shared fields (process, batch, incubator, hood) to all other existing entries in this row
+      Object.keys(newData).forEach((entryKey) => {
+        if (entryKey.startsWith(`${rowId}_`) && entryKey !== key) {
+          newData[entryKey] = {
+            ...newData[entryKey],
+            process: data.process,
+            batch: data.batch,
+            incubator: data.incubator,
+            hood: data.hood,
+          };
+        }
+      });
+
+      return newData;
+    });
+
     setModalState({ isOpen: false, rowId: null, dateStr: null });
   };
 
@@ -238,30 +327,18 @@ const Index = () => {
       const scrollContainer = element.querySelector('.overflow-x-auto');
       const contentWidth = scrollContainer ? scrollContainer.scrollWidth : element.scrollWidth;
 
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        useCORS: true,
-        width: contentWidth,
-        windowWidth: contentWidth,
-        onclone: (clonedDoc) => {
-          const clonedElement = clonedDoc.getElementById('schedule-grid-container');
-          if (clonedElement) {
-            clonedElement.style.overflow = 'visible';
-            clonedElement.style.width = 'fit-content';
-
-            const innerScroll = clonedElement.querySelector('.overflow-x-auto') as HTMLElement;
-            if (innerScroll) {
-              innerScroll.style.overflow = 'visible';
-              innerScroll.style.width = 'fit-content';
-            }
-          }
-        },
+      const dataUrl = await domtoimage.toJpeg(element, {
+        bgcolor: '#ffffff',
+        width: contentWidth * 4,
+        height: element.scrollHeight * 4,
+        style: {
+          transform: 'scale(4)',
+          transformOrigin: 'top left'
+        }
       });
 
-      const image = canvas.toDataURL('image/jpeg', 0.9);
       const link = document.createElement('a');
-      link.href = image;
+      link.href = dataUrl;
       link.download = `production_schedule_${formatDate(currentDate)}.jpg`;
       link.click();
     } catch (err) {
@@ -344,7 +421,7 @@ const Index = () => {
           <div className="overflow-x-auto">
             <div className="min-w-[1000px]">
               {/* Grid Header */}
-              <div className="grid grid-cols-[150px_repeat(5,_1fr)] bg-secondary border-b border-border">
+              <div className="grid grid-cols-[250px_repeat(5,_1fr)] bg-secondary border-b border-border">
                 <div className="p-4 flex items-end font-semibold text-muted-foreground text-sm border-r border-border">
                   Room / Day
                 </div>
@@ -384,11 +461,11 @@ const Index = () => {
                   {rows.map((row) => (
                     <div
                       key={row.id}
-                      className="grid grid-cols-[150px_repeat(5,_1fr)] border-b border-border last:border-b-0 hover:bg-secondary/50"
+                      className="grid grid-cols-[250px_repeat(5,_1fr)] border-b border-border last:border-b-0 hover:bg-secondary/50"
                     >
                       {/* Row Label */}
-                      <div className="p-4 border-r border-border bg-secondary/50 font-semibold text-sm text-foreground flex items-center group relative">
-                        <span className="flex-1 mr-8">{row.label}</span>
+                      <div className="p-4 border-r border-border bg-secondary/50 font-bold text-2xl text-foreground flex items-center group relative overflow-hidden">
+                        <span className="flex-1 mr-8 truncate min-w-0" title={row.label}>{row.label}</span>
 
                         <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity bg-secondary pl-2">
                           <button
@@ -397,7 +474,7 @@ const Index = () => {
                             className="p-1.5 hover:bg-primary/10 rounded text-muted-foreground hover:text-primary transition-colors focus:opacity-100 focus:outline-none"
                             title="Edit Room Name"
                           >
-                            <Pencil className="w-3.5 h-3.5" />
+                            <Pencil className="w-4 h-4" />
                           </button>
                           <button
                             type="button"
@@ -439,6 +516,7 @@ const Index = () => {
                             onDragEnter={handleDragEnter}
                             onDragLeave={handleDragLeave}
                             isDragOver={!!isDragOver}
+                            roomLabel={row.label}
                           />
                         );
                       })}
@@ -448,12 +526,6 @@ const Index = () => {
               )}
             </div>
           </div>
-        </div>
-
-        <div className="mt-4 text-xs text-muted-foreground text-center flex justify-center gap-4">
-          <span>Tip: Drag and drop cards to copy them to other days.</span>
-          <span>•</span>
-          <span>Click "Export JPG" to save an image of the current week.</span>
         </div>
       </main>
 
