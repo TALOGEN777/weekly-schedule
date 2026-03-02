@@ -70,9 +70,10 @@ const Index = () => {
   }));
 
   const weekDateStrs = formattedWeekDays.map((d) => d.dateStr);
+  const weekStart = formattedWeekDays[0]?.dateStr || '';
 
   // Backend persistence hook
-  const { rows, scheduleData, loading, setRows, setScheduleData } = useScheduleData(weekDateStrs);
+  const { rows, scheduleData, loading, setRows, setScheduleData } = useScheduleData(weekDateStrs, weekStart);
 
   // Navigation
   const handlePrevWeek = () => {

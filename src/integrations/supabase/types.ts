@@ -76,18 +76,21 @@ export type Database = {
           id: string
           label: string
           sort_order: number
+          week_start: string
         }
         Insert: {
           created_at?: string
           id: string
           label: string
           sort_order?: number
+          week_start?: string
         }
         Update: {
           created_at?: string
           id?: string
           label?: string
           sort_order?: number
+          week_start?: string
         }
         Relationships: []
       }
