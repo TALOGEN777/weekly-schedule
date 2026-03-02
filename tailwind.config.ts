@@ -78,6 +78,8 @@ export default {
           "cd19-1xx-foreground": "hsl(var(--schedule-cd19-1xx-foreground))",
           cd7: "hsl(var(--schedule-cd7))",
           "cd7-foreground": "hsl(var(--schedule-cd7-foreground))",
+          other: "hsl(var(--schedule-other))",
+          "other-foreground": "hsl(var(--schedule-other-foreground))",
         },
       },
       borderRadius: {

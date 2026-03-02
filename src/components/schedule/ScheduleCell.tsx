@@ -93,12 +93,12 @@ export const ScheduleCell = ({
   const processLower = data.process?.toLowerCase() || '';
 
   const getProcessColors = () => {
-    if (isCocoon) return { bg: 'bg-schedule-cocoon', fg: 'text-schedule-cocoon-foreground', cellBg: 'bg-schedule-cocoon hover:bg-schedule-cocoon/80' };
-    if (processLower.includes('cd19-1xx') || processLower.includes('cd19 1xx')) return { bg: 'bg-schedule-cd19-1xx', fg: 'text-schedule-cd19-1xx-foreground', cellBg: 'bg-schedule-cd19-1xx/30 hover:bg-schedule-cd19-1xx/40' };
-    if (processLower.includes('cd19')) return { bg: 'bg-schedule-cd19', fg: 'text-schedule-cd19-foreground', cellBg: 'bg-schedule-cd19/30 hover:bg-schedule-cd19/40' };
-    if (processLower.includes('cd22')) return { bg: 'bg-schedule-cd22', fg: 'text-schedule-cd22-foreground', cellBg: 'bg-schedule-cd22/30 hover:bg-schedule-cd22/40' };
-    if (processLower.includes('cd7')) return { bg: 'bg-schedule-cd7', fg: 'text-schedule-cd7-foreground', cellBg: 'bg-schedule-cd7/30 hover:bg-schedule-cd7/40' };
-    return { bg: 'bg-schedule-process', fg: 'text-schedule-process-foreground', cellBg: 'bg-card hover:bg-schedule-hover' };
+    if (isCocoon) return { bg: 'bg-schedule-cocoon', fg: 'text-schedule-cocoon-foreground' };
+    if (processLower.includes('cd19-1xx') || processLower.includes('cd19 1xx')) return { bg: 'bg-schedule-cd19-1xx', fg: 'text-schedule-cd19-1xx-foreground' };
+    if (processLower.includes('cd19')) return { bg: 'bg-schedule-cd19', fg: 'text-schedule-cd19-foreground' };
+    if (processLower.includes('cd22')) return { bg: 'bg-schedule-cd22', fg: 'text-schedule-cd22-foreground' };
+    if (processLower.includes('cd7')) return { bg: 'bg-schedule-cd7', fg: 'text-schedule-cd7-foreground' };
+    return { bg: 'bg-schedule-other', fg: 'text-schedule-other-foreground' };
   };
 
   const colors = getProcessColors();
@@ -117,7 +117,7 @@ export const ScheduleCell = ({
         'h-full min-h-[140px] p-3 border-r border-b border-border cursor-grab active:cursor-grabbing transition-all relative group',
         isDragOver
           ? 'bg-schedule-dragover ring-2 ring-primary ring-inset'
-          : colors.cellBg
+          : 'bg-card hover:bg-schedule-hover'
       )}
     >
       {/* Centered Content */}
