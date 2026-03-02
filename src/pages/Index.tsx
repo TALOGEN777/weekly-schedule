@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Calendar,
   ChevronLeft,
@@ -9,6 +9,8 @@ import {
   Trash2,
   Menu,
   Loader2,
+  Undo2,
+  Redo2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScheduleCell, type ScheduleEntry } from '@/components/schedule/ScheduleCell';
@@ -21,7 +23,8 @@ import {
   getDayName,
   getCurrentWeekStart,
 } from '@/utils/dateUtils';
-import { useScheduleData, type ScheduleRow } from '@/hooks/useScheduleData';
+import { useScheduleData, type ScheduleRow, type ScheduleData } from '@/hooks/useScheduleData';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
 import domtoimage from 'dom-to-image';
 
 interface ModalState {
@@ -74,6 +77,46 @@ const Index = () => {
 
   // Backend persistence hook
   const { rows, scheduleData, loading, setRows, setScheduleData } = useScheduleData(weekDateStrs, weekStart);
+
+  // Undo/Redo
+  interface ScheduleSnapshot { rows: ScheduleRow[]; data: ScheduleData; }
+  const undoRedo = useUndoRedo<ScheduleSnapshot>({ rows: [], data: {} });
+  const isUndoRedoAction = useRef(false);
+
+  // Sync loaded data into undo history as initial state
+  useEffect(() => {
+    if (!loading) {
+      undoRedo.reset({ rows, data: scheduleData });
+    }
+  }, [loading, weekStart]);
+
+  // Track changes for undo/redo (when not triggered by undo/redo itself)
+  useEffect(() => {
+    if (loading) return;
+    if (isUndoRedoAction.current) {
+      isUndoRedoAction.current = false;
+      return;
+    }
+    undoRedo.pushState({ rows, data: scheduleData });
+  }, [rows, scheduleData]);
+
+  const handleUndo = () => {
+    const prev = undoRedo.undo();
+    if (prev) {
+      isUndoRedoAction.current = true;
+      setRows(() => prev.rows);
+      setScheduleData(() => prev.data);
+    }
+  };
+
+  const handleRedo = () => {
+    const next = undoRedo.redo();
+    if (next) {
+      isUndoRedoAction.current = true;
+      setRows(() => next.rows);
+      setScheduleData(() => next.data);
+    }
+  };
 
   // Navigation
   const handlePrevWeek = () => {
@@ -384,6 +427,15 @@ const Index = () => {
 
           {/* Desktop controls */}
           <div className="hidden md:flex items-center gap-4">
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="icon" onClick={handleUndo} disabled={!undoRedo.canUndo} title="Undo">
+                <Undo2 className="w-4 h-4" />
+              </Button>
+              <Button variant="outline" size="icon" onClick={handleRedo} disabled={!undoRedo.canRedo} title="Redo">
+                <Redo2 className="w-4 h-4" />
+              </Button>
+            </div>
+            <div className="h-6 w-px bg-border"></div>
             <Button variant="outline" size="sm" onClick={handleExportJPG}>
               <ImageIcon className="w-4 h-4 mr-2 text-primary" />
               Export JPG
@@ -448,7 +500,15 @@ const Index = () => {
 
         {/* Mobile dropdown menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-border bg-card px-4 py-3 flex flex-col gap-2">
+           <div className="md:hidden border-t border-border bg-card px-4 py-3 flex flex-col gap-2">
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleUndo} disabled={!undoRedo.canUndo} className="flex-1">
+                <Undo2 className="w-4 h-4 mr-1" /> Undo
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleRedo} disabled={!undoRedo.canRedo} className="flex-1">
+                <Redo2 className="w-4 h-4 mr-1" /> Redo
+              </Button>
+            </div>
             <Button size="sm" onClick={handleOpenAddRow} className="w-full justify-start">
               <PlusCircle className="w-4 h-4 mr-2" />
               Add Line
