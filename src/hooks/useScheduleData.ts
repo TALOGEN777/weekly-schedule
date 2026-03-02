@@ -12,7 +12,7 @@ export interface ScheduleData {
   [key: string]: ScheduleEntry;
 }
 
-export function useScheduleData(weekDateStrs: string[]) {
+export function useScheduleData(weekDateStrs: string[], weekStart: string) {
   const [rows, setRows] = useState<ScheduleRow[]>([]);
   const [scheduleData, setScheduleData] = useState<ScheduleData>({});
   const [loading, setLoading] = useState(true);
@@ -23,15 +23,16 @@ export function useScheduleData(weekDateStrs: string[]) {
   // Load data when week changes
   useEffect(() => {
     loadData();
-  }, [weekDateStrs.join(',')]);
+  }, [weekDateStrs.join(','), weekStart]);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load rows
+      // Load rows for this specific week
       const { data: rowsData, error: rowsError } = await supabase
         .from('schedule_rows')
         .select('*')
+        .eq('week_start', weekStart)
         .order('sort_order', { ascending: true });
 
       if (rowsError) throw rowsError;
@@ -95,6 +96,7 @@ export function useScheduleData(weekDateStrs: string[]) {
           id: r.id,
           label: r.label,
           sort_order: i,
+          week_start: weekStart,
         }));
 
         if (rowsToUpsert.length > 0) {
