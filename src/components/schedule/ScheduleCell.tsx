@@ -90,6 +90,18 @@ export const ScheduleCell = ({
   }
 
   const isCocoon = data.process?.toLowerCase().includes('cocoon');
+  const processLower = data.process?.toLowerCase() || '';
+
+  const getProcessColors = () => {
+    if (isCocoon) return { bg: 'bg-schedule-cocoon', fg: 'text-schedule-cocoon-foreground', cellBg: 'bg-schedule-cocoon hover:bg-schedule-cocoon/80' };
+    if (processLower.includes('cd19-1xx') || processLower.includes('cd19 1xx')) return { bg: 'bg-schedule-cd19-1xx', fg: 'text-schedule-cd19-1xx-foreground', cellBg: 'bg-schedule-cd19-1xx/30 hover:bg-schedule-cd19-1xx/40' };
+    if (processLower.includes('cd19')) return { bg: 'bg-schedule-cd19', fg: 'text-schedule-cd19-foreground', cellBg: 'bg-schedule-cd19/30 hover:bg-schedule-cd19/40' };
+    if (processLower.includes('cd22')) return { bg: 'bg-schedule-cd22', fg: 'text-schedule-cd22-foreground', cellBg: 'bg-schedule-cd22/30 hover:bg-schedule-cd22/40' };
+    if (processLower.includes('cd7')) return { bg: 'bg-schedule-cd7', fg: 'text-schedule-cd7-foreground', cellBg: 'bg-schedule-cd7/30 hover:bg-schedule-cd7/40' };
+    return { bg: 'bg-schedule-process', fg: 'text-schedule-process-foreground', cellBg: 'bg-card hover:bg-schedule-hover' };
+  };
+
+  const colors = getProcessColors();
 
   // Occupied Cell
   return (
@@ -105,9 +117,7 @@ export const ScheduleCell = ({
         'h-full min-h-[140px] p-3 border-r border-b border-border cursor-grab active:cursor-grabbing transition-all relative group',
         isDragOver
           ? 'bg-schedule-dragover ring-2 ring-primary ring-inset'
-          : isCocoon
-            ? 'bg-schedule-cocoon hover:bg-schedule-cocoon/80'
-            : 'bg-card hover:bg-schedule-hover'
+          : colors.cellBg
       )}
     >
       {/* Centered Content */}
@@ -118,9 +128,7 @@ export const ScheduleCell = ({
             <span
               className={cn(
                 'text-xs font-bold uppercase px-2 py-0.5 rounded-md',
-                isCocoon
-                  ? 'bg-schedule-cocoon text-schedule-cocoon-foreground'
-                  : 'bg-schedule-process text-schedule-process-foreground'
+                colors.bg, colors.fg
               )}
             >
               {data.process || 'N/A'}

@@ -126,6 +126,28 @@ export const RowModal = ({
               >
                 Comments
               </Button>
+              <div className="border-t border-border pt-2 mt-1">
+                <Label className="text-xs mb-1 block text-muted-foreground">Or enter a custom name:</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="e.g. Room 33"
+                    value={label}
+                    onChange={(e) => setLabel(e.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    disabled={!label.trim()}
+                    onClick={() => {
+                      if (label.trim()) {
+                        onSave({ label: label.trim() });
+                      }
+                    }}
+                  >
+                    Add
+                  </Button>
+                </div>
+              </div>
             </div>
           ) : (
             <Input
