@@ -19,9 +19,22 @@ export function useScheduleData(weekDateStrs: string[], weekStart: string) {
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedRowsRef = useRef<string>('');
   const lastSavedEntriesRef = useRef<string>('');
+  const weekDateStrsRef = useRef(weekDateStrs);
+  const weekStartRef = useRef(weekStart);
+
+  // Keep refs in sync
+  useEffect(() => {
+    weekDateStrsRef.current = weekDateStrs;
+    weekStartRef.current = weekStart;
+  }, [weekDateStrs.join(','), weekStart]);
 
   // Load data when week changes
   useEffect(() => {
+    // Cancel any pending save from the previous week
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
     loadData();
   }, [weekDateStrs.join(','), weekStart]);
 
@@ -85,6 +98,8 @@ export function useScheduleData(weekDateStrs: string[], weekStart: string) {
   }, []);
 
   const saveAll = async (currentRows: ScheduleRow[], currentData: ScheduleData) => {
+    const currentWeekDateStrs = weekDateStrsRef.current;
+    const currentWeekStart = weekStartRef.current;
     try {
       const rowsJson = JSON.stringify(currentRows);
       const dataJson = JSON.stringify(currentData);
@@ -96,7 +111,7 @@ export function useScheduleData(weekDateStrs: string[], weekStart: string) {
           id: r.id,
           label: r.label,
           sort_order: i,
-          week_start: weekStart,
+          week_start: currentWeekStart,
         }));
 
         if (rowsToUpsert.length > 0) {
@@ -142,16 +157,16 @@ export function useScheduleData(weekDateStrs: string[], weekStart: string) {
         });
 
         // Delete entries for this week first, then insert fresh
-        if (weekDateStrs.length > 0) {
+        if (currentWeekDateStrs.length > 0) {
           await supabase
             .from('schedule_entries')
             .delete()
-            .in('date_str', weekDateStrs);
+            .in('date_str', currentWeekDateStrs);
         }
 
         if (entriesToUpsert.length > 0) {
           // Filter to only entries in the current week
-          const weekSet = new Set(weekDateStrs);
+          const weekSet = new Set(currentWeekDateStrs);
           const filtered = entriesToUpsert.filter(e => weekSet.has(e.date_str));
           if (filtered.length > 0) {
             const { error } = await supabase
