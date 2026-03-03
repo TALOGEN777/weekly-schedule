@@ -27,6 +27,8 @@ import {
 } from '@/utils/dateUtils';
 import { useScheduleData, type ScheduleRow, type ScheduleData } from '@/hooks/useScheduleData';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
+import { BackupListModal } from '@/components/schedule/BackupListModal';
+import { supabase } from '@/integrations/supabase/client';
 import domtoimage from 'dom-to-image';
 
 interface ModalState {
@@ -62,6 +64,8 @@ const Index = () => {
   });
   const [dragOverCell, setDragOverCell] = useState<DragOverCell | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [backupModalOpen, setBackupModalOpen] = useState(false);
+  const [savingBackup, setSavingBackup] = useState(false);
 
   const scheduleRef = useRef<HTMLDivElement>(null);
 
@@ -118,6 +122,36 @@ const Index = () => {
       setRows(() => next.rows);
       setScheduleData(() => next.data);
     }
+  };
+
+  // Save backup to cloud storage
+  const handleSaveBackup = async () => {
+    setSavingBackup(true);
+    try {
+      const backupData = { rows, scheduleData };
+      const json = JSON.stringify(backupData, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const fileName = `schedule_${weekStart}_${timestamp}.json`;
+      
+      const { error } = await supabase.storage
+        .from('schedule-backups')
+        .upload(fileName, blob, { contentType: 'application/json' });
+      if (error) throw error;
+      alert(`Backup saved: ${fileName}`);
+    } catch (err) {
+      console.error('Failed to save backup:', err);
+      alert('Failed to save backup.');
+    } finally {
+      setSavingBackup(false);
+    }
+  };
+
+  // Restore from backup
+  const handleRestoreBackup = (data: { rows: ScheduleRow[]; scheduleData: ScheduleData }) => {
+    isUndoRedoAction.current = true;
+    setRows(() => data.rows);
+    setScheduleData(() => data.scheduleData);
   };
 
   // Navigation
@@ -438,12 +472,12 @@ const Index = () => {
               </Button>
             </div>
             <div className="flex items-center gap-1">
-              <Button variant="outline" size="sm" onClick={manualSave} disabled={saving} title="Save">
+              <Button variant="outline" size="sm" onClick={handleSaveBackup} disabled={savingBackup} title="Save to Cloud">
                 <Save className="w-4 h-4 mr-1" />
-                {saving ? 'Saving...' : 'Save'}
+                {savingBackup ? 'Saving...' : 'Save'}
               </Button>
-              <Button variant="outline" size="sm" onClick={reload} disabled={loading} title="Reload">
-                <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
+              <Button variant="outline" size="sm" onClick={() => setBackupModalOpen(true)} title="Restore from Cloud">
+                <RefreshCw className="w-4 h-4 mr-1" />
                 Reload
               </Button>
             </div>
@@ -521,11 +555,11 @@ const Index = () => {
               </Button>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={manualSave} disabled={saving} className="flex-1">
-                <Save className="w-4 h-4 mr-1" /> {saving ? 'Saving...' : 'Save'}
+              <Button variant="outline" size="sm" onClick={() => { handleSaveBackup(); setMobileMenuOpen(false); }} disabled={savingBackup} className="flex-1">
+                <Save className="w-4 h-4 mr-1" /> {savingBackup ? 'Saving...' : 'Save'}
               </Button>
-              <Button variant="outline" size="sm" onClick={() => { reload(); setMobileMenuOpen(false); }} disabled={loading} className="flex-1">
-                <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> Reload
+              <Button variant="outline" size="sm" onClick={() => { setBackupModalOpen(true); setMobileMenuOpen(false); }} className="flex-1">
+                <RefreshCw className="w-4 h-4 mr-1" /> Reload
               </Button>
             </div>
             <Button size="sm" onClick={handleOpenAddRow} className="w-full justify-start">
@@ -694,6 +728,12 @@ const Index = () => {
         onDelete={handleDeleteRow}
         initialLabel={rowModalState.initialLabel}
         mode={rowModalState.mode}
+      />
+
+      <BackupListModal
+        isOpen={backupModalOpen}
+        onClose={() => setBackupModalOpen(false)}
+        onRestore={handleRestoreBackup}
       />
     </div>
   );
