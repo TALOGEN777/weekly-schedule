@@ -16,11 +16,13 @@ export function useScheduleData(weekDateStrs: string[], weekStart: string) {
   const [rows, setRows] = useState<ScheduleRow[]>([]);
   const [scheduleData, setScheduleData] = useState<ScheduleData>({});
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedRowsRef = useRef<string>('');
   const lastSavedEntriesRef = useRef<string>('');
   const weekDateStrsRef = useRef(weekDateStrs);
   const weekStartRef = useRef(weekStart);
+  const dataLoadedRef = useRef(false);
 
   // Keep refs in sync
   useEffect(() => {
@@ -35,13 +37,13 @@ export function useScheduleData(weekDateStrs: string[], weekStart: string) {
       clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = null;
     }
+    dataLoadedRef.current = false;
     loadData();
   }, [weekDateStrs.join(','), weekStart]);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      // Load rows for this specific week
       const { data: rowsData, error: rowsError } = await supabase
         .from('schedule_rows')
         .select('*')
@@ -56,7 +58,6 @@ export function useScheduleData(weekDateStrs: string[], weekStart: string) {
         name: r.label,
       }));
 
-      // Load entries for current week's dates
       const { data: entriesData, error: entriesError } = await supabase
         .from('schedule_entries')
         .select('*')
@@ -82,6 +83,7 @@ export function useScheduleData(weekDateStrs: string[], weekStart: string) {
       setScheduleData(loadedData);
       lastSavedRowsRef.current = JSON.stringify(loadedRows);
       lastSavedEntriesRef.current = JSON.stringify(loadedData);
+      dataLoadedRef.current = true;
     } catch (err) {
       console.error('Failed to load schedule data:', err);
     } finally {
@@ -91,22 +93,27 @@ export function useScheduleData(weekDateStrs: string[], weekStart: string) {
 
   // Debounced save
   const scheduleSave = useCallback((newRows: ScheduleRow[], newData: ScheduleData) => {
+    // Don't save if data hasn't been loaded yet
+    if (!dataLoadedRef.current) return;
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     saveTimeoutRef.current = setTimeout(() => {
       saveAll(newRows, newData);
-    }, 500);
+    }, 1000);
   }, []);
 
   const saveAll = async (currentRows: ScheduleRow[], currentData: ScheduleData) => {
+    // Guard: don't save if data was never loaded
+    if (!dataLoadedRef.current) return;
+
     const currentWeekDateStrs = weekDateStrsRef.current;
     const currentWeekStart = weekStartRef.current;
+    setSaving(true);
     try {
       const rowsJson = JSON.stringify(currentRows);
       const dataJson = JSON.stringify(currentData);
 
       // Save rows if changed
       if (rowsJson !== lastSavedRowsRef.current) {
-        // Upsert all rows
         const rowsToUpsert = currentRows.map((r, i) => ({
           id: r.id,
           label: r.label,
@@ -138,56 +145,100 @@ export function useScheduleData(weekDateStrs: string[], weekStart: string) {
 
       // Save entries if changed
       if (dataJson !== lastSavedEntriesRef.current) {
-        // Build entries to upsert
-        const entriesToUpsert = Object.entries(currentData).map(([key, entry]) => {
-          const [rowId, ...dateParts] = key.split('_');
-          const dateStr = dateParts.join('_'); // rejoin in case date has underscores
-          return {
-            row_id: rowId,
-            date_str: dateStr,
-            process: entry.process || '',
-            batch: entry.batch || '',
-            day: entry.day || '',
-            start_time: entry.startTime || '',
-            end_time: entry.endTime || '',
-            employees: entry.employees || '',
-            incubator: entry.incubator || '',
-            hood: entry.hood || '',
-          };
-        });
+        // Build current entries for this week only
+        const weekSet = new Set(currentWeekDateStrs);
+        const currentEntries = Object.entries(currentData)
+          .map(([key, entry]) => {
+            const [rowId, ...dateParts] = key.split('_');
+            const dateStr = dateParts.join('_');
+            return { key, rowId, dateStr, entry };
+          })
+          .filter(e => weekSet.has(e.dateStr));
 
-        // Delete entries for this week first, then insert fresh
-        if (currentWeekDateStrs.length > 0) {
+        // Build previous entries
+        const prevData: ScheduleData = lastSavedEntriesRef.current ? JSON.parse(lastSavedEntriesRef.current) : {};
+        const prevKeys = new Set(
+          Object.keys(prevData).filter(k => {
+            const [, ...dateParts] = k.split('_');
+            return weekSet.has(dateParts.join('_'));
+          })
+        );
+
+        // Upsert current entries
+        if (currentEntries.length > 0) {
+          const toUpsert = currentEntries.map(e => ({
+            row_id: e.rowId,
+            date_str: e.dateStr,
+            process: e.entry.process || '',
+            batch: e.entry.batch || '',
+            day: e.entry.day || '',
+            start_time: e.entry.startTime || '',
+            end_time: e.entry.endTime || '',
+            employees: e.entry.employees || '',
+            incubator: e.entry.incubator || '',
+            hood: e.entry.hood || '',
+          }));
+
+          // Delete existing entries for these specific row_id+date_str combos, then insert
+          // This is safer than deleting ALL entries for the week
+          for (const entry of toUpsert) {
+            await supabase
+              .from('schedule_entries')
+              .delete()
+              .eq('row_id', entry.row_id)
+              .eq('date_str', entry.date_str);
+          }
+
+          const { error } = await supabase
+            .from('schedule_entries')
+            .insert(toUpsert);
+          if (error) throw error;
+        }
+
+        // Delete entries that were removed (existed before but not now)
+        const currentKeys = new Set(currentEntries.map(e => e.key));
+        const removedKeys = [...prevKeys].filter(k => !currentKeys.has(k));
+        for (const key of removedKeys) {
+          const [rowId, ...dateParts] = key.split('_');
+          const dateStr = dateParts.join('_');
           await supabase
             .from('schedule_entries')
             .delete()
-            .in('date_str', currentWeekDateStrs);
-        }
-
-        if (entriesToUpsert.length > 0) {
-          // Filter to only entries in the current week
-          const weekSet = new Set(currentWeekDateStrs);
-          const filtered = entriesToUpsert.filter(e => weekSet.has(e.date_str));
-          if (filtered.length > 0) {
-            const { error } = await supabase
-              .from('schedule_entries')
-              .insert(filtered);
-            if (error) throw error;
-          }
+            .eq('row_id', rowId)
+            .eq('date_str', dateStr);
         }
 
         lastSavedEntriesRef.current = dataJson;
       }
     } catch (err) {
       console.error('Failed to save schedule data:', err);
+    } finally {
+      setSaving(false);
     }
   };
+
+  // Manual save - force save current state immediately
+  const manualSave = useCallback(() => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+    // Force save by resetting last-saved refs
+    setRows(currentRows => {
+      setScheduleData(currentData => {
+        lastSavedRowsRef.current = '';
+        lastSavedEntriesRef.current = '';
+        saveAll(currentRows, currentData);
+        return currentData;
+      });
+      return currentRows;
+    });
+  }, []);
 
   // Wrapped setters that trigger save
   const updateRows = useCallback((updater: (prev: ScheduleRow[]) => ScheduleRow[]) => {
     setRows(prev => {
       const next = updater(prev);
-      // Need to get current scheduleData too
       setScheduleData(currentData => {
         scheduleSave(next, currentData);
         return currentData;
@@ -211,8 +262,10 @@ export function useScheduleData(weekDateStrs: string[], weekStart: string) {
     rows,
     scheduleData,
     loading,
+    saving,
     setRows: updateRows,
     setScheduleData: updateScheduleData,
     reload: loadData,
+    manualSave,
   };
 }
