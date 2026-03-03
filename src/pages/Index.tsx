@@ -11,6 +11,8 @@ import {
   Loader2,
   Undo2,
   Redo2,
+  Save,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScheduleCell, type ScheduleEntry } from '@/components/schedule/ScheduleCell';
@@ -76,7 +78,7 @@ const Index = () => {
   const weekStart = formattedWeekDays[0]?.dateStr || '';
 
   // Backend persistence hook
-  const { rows, scheduleData, loading, setRows, setScheduleData } = useScheduleData(weekDateStrs, weekStart);
+  const { rows, scheduleData, loading, saving, setRows, setScheduleData, reload, manualSave } = useScheduleData(weekDateStrs, weekStart);
 
   // Undo/Redo
   interface ScheduleSnapshot { rows: ScheduleRow[]; data: ScheduleData; }
@@ -435,7 +437,16 @@ const Index = () => {
                 <Redo2 className="w-4 h-4" />
               </Button>
             </div>
-            <div className="h-6 w-px bg-border"></div>
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="sm" onClick={manualSave} disabled={saving} title="Save">
+                <Save className="w-4 h-4 mr-1" />
+                {saving ? 'Saving...' : 'Save'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={reload} disabled={loading} title="Reload">
+                <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
+                Reload
+              </Button>
+            </div>
             <Button variant="outline" size="sm" onClick={handleExportJPG}>
               <ImageIcon className="w-4 h-4 mr-2 text-primary" />
               Export JPG
@@ -507,6 +518,14 @@ const Index = () => {
               </Button>
               <Button variant="outline" size="sm" onClick={handleRedo} disabled={!undoRedo.canRedo} className="flex-1">
                 <Redo2 className="w-4 h-4 mr-1" /> Redo
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={manualSave} disabled={saving} className="flex-1">
+                <Save className="w-4 h-4 mr-1" /> {saving ? 'Saving...' : 'Save'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => { reload(); setMobileMenuOpen(false); }} disabled={loading} className="flex-1">
+                <RefreshCw className={`w-4 h-4 mr-1 ${loading ? 'animate-spin' : ''}`} /> Reload
               </Button>
             </div>
             <Button size="sm" onClick={handleOpenAddRow} className="w-full justify-start">
