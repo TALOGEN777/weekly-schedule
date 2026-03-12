@@ -76,7 +76,7 @@ export const ScheduleCell = ({
         onDragLeave={onDragLeave}
         onClick={onClick}
         className={cn(
-          'h-full min-h-[42px] p-1.5 border-r border-b border-border cursor-grab active:cursor-grabbing transition-all relative group',
+          'h-full min-h-[32px] p-1 border-r border-b border-border cursor-grab active:cursor-grabbing transition-all relative group',
           isDragOver
             ? 'bg-schedule-dragover ring-2 ring-primary ring-inset'
             : 'bg-card hover:bg-schedule-hover'
