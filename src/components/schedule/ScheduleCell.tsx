@@ -51,7 +51,7 @@ export const ScheduleCell = ({
         onDragLeave={onDragLeave}
         className={cn(
           'h-full p-2 border-r border-b border-border cursor-pointer transition-colors',
-          isComments ? 'min-h-[60px]' : 'min-h-[140px]',
+          isComments ? 'min-h-[42px]' : 'min-h-[140px]',
           isDragOver
             ? 'bg-schedule-dragover ring-2 ring-primary ring-inset'
             : 'bg-card hover:bg-schedule-hover'
@@ -76,13 +76,13 @@ export const ScheduleCell = ({
         onDragLeave={onDragLeave}
         onClick={onClick}
         className={cn(
-          'h-full min-h-[60px] p-2 border-r border-b border-border cursor-grab active:cursor-grabbing transition-all relative group',
+          'h-full min-h-[42px] p-1.5 border-r border-b border-border cursor-grab active:cursor-grabbing transition-all relative group',
           isDragOver
             ? 'bg-schedule-dragover ring-2 ring-primary ring-inset'
             : 'bg-card hover:bg-schedule-hover'
         )}
       >
-        <div className="flex w-full h-full text-sm text-foreground items-center justify-center text-center whitespace-pre-wrap break-words">
+        <div className="flex w-full h-full text-[11px] leading-tight text-foreground items-center justify-center text-center whitespace-pre-wrap break-words">
           {data.process}
         </div>
       </div>
