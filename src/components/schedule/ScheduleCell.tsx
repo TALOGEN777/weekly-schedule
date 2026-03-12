@@ -82,7 +82,7 @@ export const ScheduleCell = ({
             : 'bg-card hover:bg-schedule-hover'
         )}
       >
-        <div className="flex w-full h-full text-sm text-foreground items-center justify-center text-center whitespace-pre-wrap break-words">
+        <div className="flex w-full h-full text-[11px] leading-tight text-foreground items-center justify-center text-center whitespace-pre-wrap break-words">
           {data.process}
         </div>
       </div>
