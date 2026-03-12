@@ -644,7 +644,7 @@ const Index = () => {
                         className="grid grid-cols-[180px_repeat(5,_1fr)] sm:grid-cols-[250px_repeat(5,_1fr)] border-b border-border last:border-b-0 hover:bg-secondary/50"
                       >
                         {/* Row Label */}
-                        <div className={cn("p-2 sm:p-4 border-r border-border bg-secondary/50 font-bold text-foreground flex items-center group relative overflow-hidden", row.label === 'Comments' ? 'text-sm sm:text-base' : 'text-lg sm:text-2xl')}>
+                        <div className={`p-2 sm:p-4 border-r border-border bg-secondary/50 font-bold text-foreground flex items-center group relative overflow-hidden ${row.label === 'Comments' ? 'text-sm sm:text-base' : 'text-lg sm:text-2xl'}`}>
                           <span className="flex-1 mr-6 sm:mr-8 truncate min-w-0" title={row.label}>
                             {row.label}
                           </span>
