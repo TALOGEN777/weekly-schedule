@@ -50,8 +50,8 @@ export const ScheduleCell = ({
         onDragEnter={(e) => onDragEnter(e, rowId, dateStr)}
         onDragLeave={onDragLeave}
         className={cn(
-          'h-full p-2 border-r border-b border-border cursor-pointer transition-colors',
-          isComments ? 'min-h-[42px]' : 'min-h-[140px]',
+        'h-full border-r border-b border-border cursor-pointer transition-colors',
+        isComments ? 'min-h-[32px] p-1' : 'min-h-[140px] p-2',
           isDragOver
             ? 'bg-schedule-dragover ring-2 ring-primary ring-inset'
             : 'bg-card hover:bg-schedule-hover'
@@ -76,7 +76,7 @@ export const ScheduleCell = ({
         onDragLeave={onDragLeave}
         onClick={onClick}
         className={cn(
-          'h-full min-h-[42px] p-1.5 border-r border-b border-border cursor-grab active:cursor-grabbing transition-all relative group',
+          'h-full min-h-[32px] p-1 border-r border-b border-border cursor-grab active:cursor-grabbing transition-all relative group',
           isDragOver
             ? 'bg-schedule-dragover ring-2 ring-primary ring-inset'
             : 'bg-card hover:bg-schedule-hover'
