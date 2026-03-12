@@ -311,22 +311,28 @@ const Index = () => {
     const { rowId, dateStr } = modalState;
     if (!rowId || !dateStr) return;
 
+    const roomLabel = rows.find((r) => r.id === rowId)?.label || '';
+    const isComments = roomLabel === 'Comments';
+
     setScheduleData((prev) => {
       const newData = { ...prev };
       const key = `${rowId}_${dateStr}`;
       newData[key] = data;
 
-      Object.keys(newData).forEach((entryKey) => {
-        if (entryKey.startsWith(`${rowId}_`) && entryKey !== key) {
-          newData[entryKey] = {
-            ...newData[entryKey],
-            process: data.process,
-            batch: data.batch,
-            incubator: data.incubator,
-            hood: data.hood,
-          };
-        }
-      });
+      // Only propagate shared fields across the row for non-Comments rows
+      if (!isComments) {
+        Object.keys(newData).forEach((entryKey) => {
+          if (entryKey.startsWith(`${rowId}_`) && entryKey !== key) {
+            newData[entryKey] = {
+              ...newData[entryKey],
+              process: data.process,
+              batch: data.batch,
+              incubator: data.incubator,
+              hood: data.hood,
+            };
+          }
+        });
+      }
 
       return newData;
     });
